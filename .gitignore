@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# OSINT artifacts
+cookies.json
+result*.json
+result*.md
+reports/
+
+# Editor
+.vscode/
+.idea/
