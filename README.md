@@ -1,70 +1,229 @@
+---
+
 <p align="center">
-    <img src="https://github.com/blackeko/yesitsme/blob/media/logo.png" alt="yesitsme logo">
+  <img src="https://raw.githubusercontent.com/blackeko/yesitsme/media/logo.png" alt="yesitsme logo" width="180">
 </p>
 
-<h3 align="center">Yes, it's me!</h3>
+<h2 align="center">INSTAGRAM-OSINT!</h2>
+
 <p align="center">
-   Simple OSINT script to find Instagram profiles by name and e-mail/phone 
+  Advanced Instagram & Cross-Platform OSINT Framework  
+  <br>
+  <sub>Identity correlation · Username intelligence · Timeline analysis</sub>
 </p>
 
-# 💬 Description
-**yesitsme** is a simple Python script which tries to find Instagram account associated with a specific name, e-mail and phone number.
-Leveraging dumpor.com indexing capabilities, it retrieves all usernames associated with a certain name and automatically compares the fetched toutatis obfuscated e-mail/phone with the given one, saving time and energy while doing online investigations.  
+---
+
+## 💬 Description
+
+**yesitsme** is an advanced **Open-Source Intelligence (OSINT) framework** designed to correlate Instagram identities with usernames, historical traces, and cross-platform signals.
+
+Originally inspired by the concept of matching Instagram profiles via names, emails, and phone fragments, this project has evolved into a **modular, async OSINT pipeline** capable of:
+
+- Resolving Instagram user IDs via authenticated sessions
+- Extracting rich public profile metadata
+- Tracking username variants & historical traces
+- Performing cross-platform username correlation
+- Conducting Twitter/X and Reddit deep OSINT
+- Generating search-engine dorks for old usernames
+- Inferring timeline consistency and behavioral signals
+- Producing investigator-ready reports (JSON & Markdown)
+
+The framework is **read-only**, **non-intrusive**, and intended for **lawful investigations, research, and education**.
+
+---
+
+## ⚙️ Features
+
+- ✅ Instagram profile resolution via cookies
+- 🔁 Username variant & similarity clustering
+- 🧭 Timeline consistency analysis
+- 🐦 Twitter/X deep OSINT  
+  - Bio parsing  
+  - URL extraction  
+  - Historical snapshot via search engines  
+  - Email pattern inference
+- 👽 Reddit timeline & subreddit intelligence
+- 🕸️ Leak signal detection (mentions only)
+- 🔎 Automated Google & Bing dork generation
+- 📊 Confidence scoring & risk grading
+- 📁 Batch mode (multi-target investigations)
+- 🧾 JSON & Markdown report export
+
+---
+
+## ⚙️ Installation
+
+```bash
+git clone https://github.com/psycho-prince/Instagram-osint.git
+cd Instagram-osint
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+> Note: Python 3.10+ recommended
 
 
 
-# ⚙️ Installation
-```console
-eva@paradise:~$ git clone https://github.com/blackeko/yesitsme/
-eva@paradise:~$ cd yesitsme
-eva@paradise:~$ pip3 install -r requirements.txt
-eva@paradise:~$ python3 yesitsme.py -s SESSION_ID -n NAME -e EMAIL -p PHONE -t TIMEOUT 
+
+---
+
+🍪 Instagram Authentication (Required)
+
+This tool requires your own Instagram session cookies (sockpuppet recommended).
+
+How to retrieve cookies:
+
+1. Log in to Instagram in a browser
+
+
+2. Open Developer Tools → Application → Cookies
+
+
+3. Copy cookies into a JSON file (example below)
+
+
+
+Example cookies.json:
+
+[
+  {
+    "name": "sessionid",
+    "value": "YOUR_SESSION_ID",
+    "domain": ".instagram.com"
+  }
+]
+
+
+---
+
+🕹️ Usage
+
+Single Target Investigation
+
+python main.py \
+  -u "__username__" \
+  --cookies-file cookies.json \
+  --debug \
+  --json result.json \
+  --md result.md
+
+Batch Mode (Multiple Targets)
+
+python main.py \
+  -U usernames.txt \
+  --cookies-file cookies.json \
+  --json reports/
+
+Where usernames.txt contains:
+
+username1
+username2
+username3
+
+
+---
+
+📊 Output
+
+Match Levels
+
+NONE – No strong correlation
+
+LOW – Weak or partial signals
+
+MEDIUM – Cross-platform correlation
+
+HIGH – Strong identity convergence
+
+
+Risk Grades
+
+LOW – Sparse or inconsistent data
+
+MEDIUM – Partial behavioral alignment
+
+HIGH – Strong multi-source correlation
+
+
+
+---
+
+🧾 Example Report Artifacts
+
+result__username__.json → machine-readable
+
+result__username__.md → investigator-ready
+
+
+Includes:
+
+Profile metadata
+
+Username history & variants
+
+Cross-platform presence
+
+Timeline analysis
+
+Leak signal references
+
+Search engine dorks
+
+Confidence & risk explanation
+
+
+
+---
+
+📝 Notes & Limitations
+
+This tool does not brute-force, exploit, or bypass authentication
+
+Emails and phone numbers are not hacked or recovered
+
+“Email inference” is probabilistic, not verification
+
+Effectiveness depends on public footprint & OPSEC hygiene
+
+
+
+---
+
+⚠️ Legal & Ethical Disclaimer
+
+This project is intended strictly for educational purposes, authorized investigations, and lawful OSINT research.
+
+You are solely responsible for complying with:
+
+Local laws
+
+Platform Terms of Service
+
+Ethical investigation standards
+
+
+Do not use this tool for harassment, stalking, or unauthorized surveillance.
+
+
+---
+
+🙏 Credits & Inspiration
+
+Original concept & inspiration: blackeko / yesitsme
+
+Toutatis OSINT methodology
+
+Dumpor indexing insights
+
+OSINT community research & best practices
+
+
+
+---
+
+<p align="center">
+  <sub>Built with ❤️ by @rhyugen</sub>
+</p>
 ```
-
-# 🕹️ Usage
-## Argument description
-- ```-s``` "SESSION_ID"
-  - *sessionid* cookie of your Instagram account (i.e. sockpuppet);
-- ```-n``` "Name Surname"
-  - Target *name* and *surname* (case insensitive);
-- ```-e``` "a****z<span>@</span>domain.tld"
-  - *First* and *last letter* of target e-mail;
-- ```-p``` "+39 ** 09"
-  - *Area code* and *last two digits* of target phone number;
-- ```-t``` "10"
-  - *Timeout* between each request (default = 0).
-
-## Example
-```console
-eva@paradise:~$ python3 yesitsme.py -s 5t3El3650d4Z7A3jA2%Y1R70vnYn%36U3 -n "John Doe" -e "j*****e@gmail.com" -p "+39 *** *** **09" -t 10
-```
-
-## Output
-<img src="https://github.com/blackeko/yesitsme/blob/media/screenshot_1.png">
-
-Three levels of match:
-- **HIGH**: name, e-mail and phone number (obfuscated) match; 
-- **MEDIUM**: name and/or e-mail and/or phone match;
-- **LOW**: only one of them matches.
-
-# 📝 Notes
-- Name and e-mail (or phone number) are **mandatory**;
-- To leave e-mail/phone empty, simply set ```-e/-p " "```;
-- E-mail/phone asterisks are just for show and **can be omitted**;
-- If omitted, timeout is zero; it's recommended to set at least 10 seconds to avoid being detected;
-- Phone number must be in the **same format** as in the example, i.e. it must contain the area code (including plus symbol) and the whitespace;
-- When the match level is HIGH, it will prompt whether to stop or continue searching.
-
-# 🍪 Retrieve Instagram sessionid
-While logged in your Instagram account:
-  1. Right-click and click on Inspect Element to open the developer console;
-  2. Go to the Storage tab;
-  3. Expand the Cookies menu and check "sessionid" cookie.
-
-<img src="https://github.com/blackeko/yesitsme/blob/media/screenshot_2.png">
-
-
-# 🙏🏻 Credits
-Thanks to: 
-* [Toutatis](https://github.com/megadose/toutatis)
-* [Dumpor](https://dumpor.com/)# Instagram-osint
+---
