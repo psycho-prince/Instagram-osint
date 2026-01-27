@@ -13,10 +13,12 @@ from core.instagram import (
     resolve_user_id,
     fetch_profile_info,
     infer_timeline_consistency,
+    check_private_content_exposure,
 )
 from enrich.usernames import (
     generate_variants,
     check_username_presence,
+    check_username_presence_advanced,
 )
 from enrich.twitter import twitter_deep_osint
 from enrich.leaks import check_leak_signals
@@ -24,7 +26,7 @@ from enrich.dorks import generate_dorks
 from reports.render import save_reports
 
 
-VERSION = "1.0.0"
+VERSION = "1.2.0"  # Version updated for new feature
 
 
 def build_report_base(username: str) -> Dict[str, Any]:
@@ -49,10 +51,52 @@ def build_report_base(username: str) -> Dict[str, Any]:
         "profile_pic": "",
         "username_variants": [],
         "platforms": {},
+        "advanced_platforms": {},  # New section for advanced checks
         "twitter": {},
         "emails": [],
         "leak_signals": [],
         "timeline_consistency": "unknown",
+        "vulnerability_checks": {},
+        "confidence": 0.0,
+        "risk": "",
+        "risk_explanation": "",
+        "search_dorks": {},
+        "match_level": "NONE",
+        "match_reasons": [],
+    }
+
+
+def build_report_base(username: str) -> Dict[str, Any]:
+    return {
+        "username": username,
+        "user_id": "",
+        "username_history": [username],
+        "username_changed": True,   # first run establishes baseline
+        "avatar_history": [],
+        "avatar_changed": True,     # first run establishes baseline
+        "full_name": "",
+        "biography": "",
+        "external_url": "",
+        "followers": 0,
+        "following": 0,
+        "posts": 0,
+        "verified": False,
+        "business": False,
+        "private": False,
+        "public_email": "",
+        "public_phone": "",
+        "profile_pic": "",
+        "username_variants": [],
+        "platforms": {},
+        "advanced_platforms": {},  # New section for advanced checks
+        "twitter": {},
+        "emails": [],
+        "leak_signals": {
+            "bing_signals": [],
+            "pastebin_leaks": [],
+        }, # Updated to be a dictionary
+        "timeline_consistency": "unknown",
+        "vulnerability_checks": {},
         "confidence": 0.0,
         "risk": "",
         "risk_explanation": "",
@@ -81,7 +125,15 @@ async def investigate_username(
     if debug:
         print(f"[+] User ID resolved: {uid}")
 
-    # 2️⃣ Fetch Instagram profile info
+    # 2️⃣ Check for vulnerabilities (UNAUTHENTICATED)
+    if debug:
+        print("[+] Checking for private content exposure bugs…")
+    vuln_results = await check_private_content_exposure(
+        report["user_id"], report["username"], debug=debug
+    )
+    report["vulnerability_checks"]["private_content_exposure"] = vuln_results
+
+    # 3️⃣ Fetch Instagram profile info
     info = await fetch_profile_info(uid, cookies, debug=debug)
     report.update({
         "full_name": info.get("full_name", ""),
@@ -105,31 +157,39 @@ async def investigate_username(
             "url": report["profile_pic"],
         })
 
-    # 3️⃣ Username variants + cross-platform presence
+    # 4️⃣ Username variants + cross-platform presence (Basic)
     report["username_variants"] = generate_variants(username)
     if debug:
-        print("[+] Checking cross-platform username presence…")
+        print("[+] Checking cross-platform username presence (basic)…")
     report["platforms"] = await check_username_presence(username, debug=debug)
 
-    # 4️⃣ Twitter/X deep OSINT (if present)
+    # 5️⃣ Advanced cross-platform presence check (with content analysis)
+    if debug:
+        print("[+] Checking cross-platform username presence (advanced)…")
+    report["advanced_platforms"] = await check_username_presence_advanced(
+        username, report["full_name"], debug=debug
+    )
+
+    # 6️⃣ Twitter/X deep OSINT (if present)
     if report["platforms"].get("twitter", {}).get("exists"):
         if debug:
             print("[+] Twitter/X deep OSINT…")
         report["twitter"] = await twitter_deep_osint(username, debug=debug)
         report["emails"].extend(report["twitter"].get("emails", []))
 
-    # 5️⃣ Leak signals (mentions only, no scraping)
+    # 7️⃣ Leak signals (mentions only, no scraping)
     if debug:
-        print("[+] Checking leak signals (mentions only)…")
-    report["leak_signals"] = await check_leak_signals(username, debug=debug)
+        print("[+] Checking leak signals (Bing & Pastebin)…") # Updated print statement
+    leaks_data = await check_leak_signals(username, debug=debug)
+    report["leak_signals"] = leaks_data # Assign the dictionary directly
 
-    # 6️⃣ Timeline consistency (cross-platform)
+    # 8️⃣ Timeline consistency (cross-platform)
     report["timeline_consistency"] = infer_timeline_consistency(report)
 
-    # 7️⃣ Automated search-engine dorks (NEW)
+    # 9️⃣ Automated search-engine dorks
     report["search_dorks"] = generate_dorks(report)
 
-    # 8️⃣ Confidence + risk grading
+    # 🔟 Confidence + risk grading
     report["confidence"] = score_confidence(report)
     report["risk"], report["risk_explanation"] = grade_risk(report)
 
@@ -139,7 +199,7 @@ async def investigate_username(
 async def main():
     parser = argparse.ArgumentParser(
         prog=f"yesitsme v{VERSION}",
-        description="Instagram OSINT with enrichment & automated dorks"
+        description="Instagram OSINT with enrichment & automated bug detection"
     )
     parser.add_argument("-u", "--username", required=True, help="Target Instagram username")
     parser.add_argument("--cookie", help="Raw cookie string")
@@ -172,16 +232,55 @@ async def main():
         cookies,
         debug=args.debug
     )
+    
+    # Create a simple vulnerability status for the summary
+    vuln_summary = "NOT_VULNERABLE"
+    if report["vulnerability_checks"]["private_content_exposure"]["legacy_json_vulnerable"] or \
+       report["vulnerability_checks"]["private_content_exposure"]["graphql_vulnerable"]:
+        vuln_summary = "VULNERABLE"
+
 
     # Print summary
     print("\n[+] OSINT RESULT SUMMARY")
     for k in [
         "username", "user_id", "full_name", "biography", "external_url",
         "followers", "following", "posts", "verified", "business", "private",
-        "public_email", "public_phone", "timeline_consistency",
-        "confidence", "risk", "risk_explanation"
     ]:
         print(f"{k:<22}: {report.get(k)}")
+    
+    print(f"{'vulnerability_status':<22}: {vuln_summary}")
+
+    # Print advanced platform results
+    print("\n[+] ADVANCED PLATFORM CHECK")
+    for platform, result in report.get("advanced_platforms", {}).items():
+        if result.get("exists"):
+            print(f"  - {platform.upper()} FOUND: {result.get('url')}")
+            print(f"    Confidence: {result.get('confidence', 0.0)}")
+            if result.get("extracted_full_name"):
+                print(f"    Full Name: {result.get('extracted_full_name')}")
+            if result.get("extracted_bio"):
+                print(f"    Bio: {result.get('extracted_bio', '')[:100]}...")
+            if result.get('matches'):
+                print(f"    Matches: {', '.join(result.get('matches', []))}")
+        else:
+            print(f"  - {platform.upper()} NOT FOUND (Status: {result.get('status', 'N/A')})")
+
+    # Print Pastebin leaks
+    pastebin_leaks = report["leak_signals"].get("pastebin_leaks", [])
+    if pastebin_leaks:
+        print("\n[+] PASTEBIN LEAKS FOUND")
+        for leak in pastebin_leaks:
+            print(f"  - URL: {leak['url']}")
+            print(f"    Found Username: {leak['found_username']}")
+            print(f"    Found Keywords: {', '.join(leak['found_keywords'])}")
+            print(f"    Snippet: {leak['snippet'][:150]}...")
+    else:
+        print("\n[+] NO PASTEBIN LEAKS FOUND")
+
+
+    print("\n[+] ANALYSIS")
+    for k in ["timeline_consistency", "confidence", "risk", "risk_explanation"]:
+         print(f"{k:<22}: {report.get(k)}")
 
     # Save reports
     if args.json_out or args.md_out:

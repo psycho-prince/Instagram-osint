@@ -92,3 +92,64 @@ def infer_timeline_consistency(report: dict) -> str:
     if platforms.get("twitter", {}).get("exists"):
         return "consistent"
     return "unknown"
+
+
+async def check_private_content_exposure(user_id: str, username: str, debug: bool = False) -> dict:
+    """
+    Checks for private content exposure vulnerabilities.
+    """
+    results = {
+        "legacy_json_vulnerable": False,
+        "legacy_json_evidence": "",
+        "graphql_vulnerable": False,
+        "graphql_evidence": "",
+    }
+
+    # Test 1: Legacy JSON endpoint
+    legacy_url = f"https://www.instagram.com/{username}/?__a=1&__d=dis"
+    legacy_headers = {
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
+        "Accept": "application/json",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    try:
+        async with httpx.AsyncClient(headers=legacy_headers, timeout=15) as c:
+            r = await c.get(legacy_url)
+            if debug:
+                print(f"[DEBUG] check_private_content_exposure (legacy) HTTP {r.status_code}")
+            if r.status_code == 200:
+                text_content = r.text
+                if any(kw in text_content for kw in [
+                    "edge_owner_to_timeline_media", "display_url", "video_url", '"edges":[{"node":'
+                ]):
+                    results["legacy_json_vulnerable"] = True
+                    results["legacy_json_evidence"] = "Found media keywords in unauthenticated response."
+
+    except Exception as e:
+        if debug:
+            print(f"[DEBUG] check_private_content_exposure (legacy) error: {e}")
+
+    # Test 2: GraphQL endpoint
+    graphql_url = (
+        "https://www.instagram.com/graphql/query/?query_hash=58b6785bea111c67129decbe6a448951"
+        f"&variables=%7B%22id%22%3A%22{user_id}%22%2C%22first%22%3A12%7D"
+    )
+    graphql_headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "application/json",
+    }
+    try:
+        async with httpx.AsyncClient(headers=graphql_headers, timeout=15) as c:
+            r = await c.get(graphql_url)
+            if debug:
+                print(f"[DEBUG] check_private_content_exposure (graphql) HTTP {r.status_code}")
+            if r.status_code == 200:
+                data = r.json()
+                if not data.get("errors"):
+                    results["graphql_vulnerable"] = True
+                    results["graphql_evidence"] = "GraphQL response did not contain an error, indicating possible data exposure."
+    except Exception as e:
+        if debug:
+            print(f"[DEBUG] check_private_content_exposure (graphql) error: {e}")
+
+    return results
